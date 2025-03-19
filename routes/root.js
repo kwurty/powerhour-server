@@ -22,4 +22,13 @@ module.exports = async function (fastify, opts) {
       return request.user
     }
   )
+  fastify.get(
+    "/lookatauth",
+    {
+      onRequest: [fastify.softauthenticate]
+    },
+    async function (request, reply) {
+      return (request.authenticated)
+    }
+  )
 }
