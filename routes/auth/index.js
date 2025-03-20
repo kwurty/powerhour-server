@@ -47,15 +47,15 @@ async function authRoutes(fastify, options) {
     });
 
     // //oauth login
-    // fastify.get('/login/google', async (request, reply) => {
-    //     const redirectUri = process.env.GOOGLE_CALLBACK_URL;
-    //     const scope = 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
-    //     const state = 'userinfo.email'; // You may want to use a proper random state string for CSRF protection
+    fastify.get('/login/google/authenticate', async (request, reply) => {
+        const redirectUri = process.env.GOOGLE_CALLBACK_URL;
+        const scope = 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+        const state = 'userinfo.email'; // You may want to use a proper random state string for CSRF protection
 
-    //     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${process.env.GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}`;
 
-    //     reply.redirect(authUrl);
-    // })
+        reply.redirect(authUrl);
+    })
 
     //oauth callback
     fastify.get('/login/google/callback', async (request, reply) => {
