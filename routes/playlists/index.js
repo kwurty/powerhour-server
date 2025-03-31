@@ -1,10 +1,14 @@
 async function playlistRoutes(fastify, options) {
     fastify.get('/', { preHandler: fastify.softauthenticate }, async (request, reply) => {
         const searchQuery = request.query.search || "";
+        console.log('request-query:', request.query)
         const searchText = decodeURIComponent(searchQuery);
         const page = parseInt(request.query.page, 10) || 1; // Default to page 1
         const limit = 10;
         const offset = (page - 1) * limit;
+
+        console.log('searchtext', searchText)
+        console.dir(request.query)
 
         try {
             let query = `
