@@ -1,3 +1,35 @@
+const createPlaylist = (rows) => {
+    return {
+        id: rows[0].playlist_id,
+        name: rows[0].playlist_name,
+        user_id: rows[0].user_id,
+        user_name: rows[0].user_name,
+        videos: rows.map(row => ({
+            id: row.video_id,
+            name: row.video_name,
+            starttime: row.StartTime,
+            duration: row.Duration,
+            thumbnails: {
+                default: {
+                    url: row.thumbnail_small,
+                    width: 0,
+                    height: 0,
+                },
+                medium: {
+                    url: row.thumbnail_medium,
+                    width: 0,
+                    height: 0,
+                },
+                high: {
+                    url: row.thumbnail_large,
+                    width: 0,
+                    height: 0,
+                },
+            }
+        }))
+    }
+}
+
 async function playlistRoutes(fastify, options) {
     fastify.get('/', { preHandler: fastify.softauthenticate }, async (request, reply) => {
         const searchQuery = request.query.search || "";
@@ -126,35 +158,7 @@ async function playlistRoutes(fastify, options) {
                         if (rows.length < 1) {
                             reply.status(404).send({ error: 'Playlist not found' })
                         } else {
-                            const playlist = {
-                                id: rows[0].playlist_id,
-                                name: rows[0].playlist_name,
-                                user_id: rows[0].user_id,
-                                user_name: rows[0].user_name,
-                                videos: rows.map(row => ({
-                                    id: row.video_id,
-                                    name: row.video_name,
-                                    starttime: row.StartTime,
-                                    duration: row.Duration,
-                                    thumbnails: {
-                                        default: {
-                                            url: row.thumbnail_small,
-                                            width: 0,
-                                            height: 0,
-                                        },
-                                        medium: {
-                                            url: row.thumbnail_medium,
-                                            width: 0,
-                                            height: 0,
-                                        },
-                                        high: {
-                                            url: row.thumbnail_large,
-                                            width: 0,
-                                            height: 0,
-                                        },
-                                    }
-                                }))
-                            };
+                            const playlist = createPlaylist(rows);
                             reply.send(playlist);
                         }
                     } else {
@@ -191,7 +195,59 @@ async function playlistRoutes(fastify, options) {
 
     })
 
-    fastify.post('/:id', async (request, reply) => {
+    fastify.put('/:id', { preHandler: fastify.authenticate }, async (request, reply) => {
+        try {
+            const { id } = request.params;
+            const { name, videos } = request.body;
+            const userId = request.user.id;
+
+            // Validation (for example, checking required fields)
+
+            // Check if the playlist exists and belongs to the user
+            const [playlistCheck] = await fastify.mysql.query(
+                'SELECT * FROM Playlists WHERE ID = ? AND UserID = ?', [id, userId]
+            );
+
+            if (playlistCheck.length < 1) {
+                reply.status(404).send({ error: 'You are not authorized to edit this playist.' });
+                return;
+            }
+
+            if (!userId || !name) {
+                reply.status(400).send({ error: 'User ID and name are required.' });
+                return;
+            }
+
+            const insertVideos = videos.map(video => [video.id, video.name, video.description, video.thumbnails.default.url, video.thumbnails.medium.url, video.thumbnails.high.url, video.duration])
+            const [videoResult] = await fastify.mysql.query(
+                'INSERT IGNORE INTO Videos (id, Name, Description, ThumbnailSmall, ThumbnailMedium, ThumbnailLarge, Duration) VALUES ?',
+                [insertVideos]
+            );
+
+            // Delete existing videos for playlist
+            const [deleteResult] = await fastify.mysql.query(
+                'DELETE FROM Playlist_Videos WHERE PlaylistID = ?', [id]    // Delete all videos for the playlist
+            );
+
+            const videoPlaylistMap = videos.map(video => [id, video.id, video.starttime])
+            const [videoPlaylistMapResult] = await fastify.mysql.query(
+                'INSERT INTO Playlist_Videos (PlaylistID, VideoID, StartTime ) VALUES ?', [videoPlaylistMap]
+            )
+
+            const [result] = await fastify.mysql.query(
+                'UPDATE Playlists SET Name = ? WHERE ID = ? AND UserID = ?',
+                [name, id, userId]
+            );
+
+            if (result.affectedRows === 1) {
+                reply.status(200).send({ id, name });
+            } else {
+                reply.status(404).send({ error: 'Playlist not found' });
+            }
+        } catch (error) {
+            console.log(error);
+            reply.status(500).send({ error: 'Database error', details: error.message });
+        }
 
     })
     fastify.post('/bookmark', { preHandler: fastify.authenticate }, async (request, reply) => {
